@@ -1,0 +1,10 @@
+/build/
+/dist/
+*.apk
+*.dex
+*.jar
+*.class
+*.keystore
+*.jks
+__pycache__/
+*.py[cod]

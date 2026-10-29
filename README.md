@@ -1,0 +1,29 @@
+# Steering Landscape
+
+Tap the **down arrow** at the top left, then **Settings**, to choose the visual mode, palette and contrast. The **Show input values onscreen** checkbox controls the steering, accelerator and brake readout and is on by default. Choices are saved on the device.
+
+- **Mountains:** a procedural perspective landscape. Steering controls travel direction and the pedal controls the height range of newly generated terrain. The camera follows the ground with at least 35 terrain units of clearance and eases downward after a descent.
+- **Neon terrain:** the same terrain rendered as a glowing grid.
+- **Silk waves:** flowing layered lines. Steering changes their phase; pedal increases their amplitude.
+- **Star tunnel:** a field of receding points. Steering changes its center and rotation; pedal increases travel speed.
+- **Steering face:** the original yellow face rotates with steering, and the accelerator grows its eyes. Brake pressure opens its smile. This mode keeps the original face colors.
+
+Alpine, Sunset, Ocean and Monochrome palettes and Soft, Normal and High contrast apply across the other modes. Vehicle values are read without commands from `tm_hscan_service` on a background thread every 100 ms. Unavailable readings display `--`; unavailable steering stops turning. Pedal retains the last successful value for generating terrain, but is marked unavailable. The service can return zero when its EV service is missing; neither zero nor sample freshness is independently verified. The pedal value is depression percentage, not an angle in degrees.
+
+The terrain uses a 240×120 RGB565 bitmap, front-to-back columns, occlusion, distance fog and cached interpolated heights. Existing points keep their height as pedal changes, so scenery grows as new points enter view. Travel is visual and uses a fixed speed independent of vehicle speed. A bounded cache is reset between frames after 49,152 unique points; a very long session can visibly regenerate terrain. Animation and polling stop when paused. The renderer targets 25 redraws per second; actual head-unit performance needs measurement.
+
+Build with `./build.sh`; the signed development APK is `build/SteeringLandscape.apk`. The package is `com.codex.steeringlandscape`. The API 19 toolchain and target-specific installation notes are in [the Gen5W guide](../../GEN5W_ANDROID_APK_GUI_BEST_PRACTICES.md). Keep the build keystore for subsequent updates.
+
+For USB distribution through an existing NEMESIS installation, run `./build.sh` followed by `python3 build_nemesis_package.py`. Unpack `dist/steering-landscape-1.0.0-usb.zip` at the root of a USB drive; `dist/steering-landscape-1.0.0.zip` is the separate NEMESIS package for CLI installation. See the [package instructions](packages/steering-landscape/README.md) for supported firmware, update and uninstall behavior, and optional approved previous APK. The package hooks have been installed and launched through the NEMESIS CLI on the physical unit; the user also reports a successful USB installation.
+
+Four additional OpenGL ES 2.0 modes appear in the same menu: **Kaleidoscope**, **Aurora**, **Plasma**, and **Stained glass**. They use a 480×180 shader surface, animated at the existing target cadence, with steering changing orientation and pedal changing animation speed. Palette and contrast settings apply to the shaders. Shader compatibility and visual quality vary by GPU; a failed shader initialization reports `OpenGL unavailable`.
+
+The OpenGL menu also includes **Squish face**, **Blob carnival**, and **Ink garden**. These add a hand-drawn, organic direction to the earlier geometric scenes. Steering rotates the visuals, accelerator input influences the motion and/or eyes, and a brake-strength channel can squeeze, gather, or thicken elements. The older modes use a continuously accumulated animation clock so changing the accelerator does not jump the animation; braking slows movement in the terrain, waves, stars, and shaders.
+
+The HUD shows `BRAKE` followed by the head unit's cylinder-pressure getter. This is a brake-related **candidate**, not a verified pedal position or percentage; its units, behavior during regenerative/automatic braking, and freshness are unconfirmed. The artistic response uses `pressure / (pressure + 10)` and is not a calibrated pedal percentage. Errors and out-of-range values display `BRAKE --`. See [BRAKE_PEDAL.md](../../analysis/canbus/BRAKE_PEDAL.md).
+
+**Arcade highway** adds a sprite-style road scene. Steering bends the road, accelerator input increases forward scroll speed, and brake pressure makes the car repeatedly backflip; stronger pressure increases the flip rate. On release, an unfinished rotation completes so the sprite lands upright. The road and scenery use a fixed-resolution OpenGL ES 2.0 perspective shader and the car is an extruded Canvas sprite with depth during its backflip. The brake input is the HSCAN cylinder-pressure value, which the owner observed responding to a brake press; it is not a calibrated pedal-position percentage.
+
+**Toon kart world** is an original, colorful polygonal kart world. Depth-tested, closed 3D meshes depict a kart and driver, roadside candy houses, trees and faces. Vertex shaders bend the world with steering, move the scenery according to accelerator input and rotate the kart in response to brake pressure; a fragment shader adds road motion, fog and palette/contrast adjustments. Geometry is uploaded once per GL context and drawn in a single batch. The brake signal remains the uncalibrated HSCAN pressure value described above.
+
+The application code is Java; OpenGL ES runs the fragment shaders on the GPU. The rendering design limits resolution and draw calls, but the 25 fps scheduler is a target, not a measured device frame rate. Moving the Java code to C++ alone would not establish a performance improvement; profile the actual bottleneck on the head unit first.

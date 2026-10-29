@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "tiles": [
+    {
+      "id": "steering_landscape",
+      "display_name": "Steering Landscape",
+      "icon_day": "icons/landscape-day.png",
+      "icon_night": "icons/landscape-night.png",
+      "action": {
+        "type": "activity",
+        "component": "com.codex.steeringlandscape/com.codex.steeringlandscape.MainActivity"
+      }
+    }
+  ]
+}

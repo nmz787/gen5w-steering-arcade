@@ -1,0 +1,13 @@
+[nemesis]
+id=steering-landscape
+name=Steering Landscape
+version=1.0.0
+types=application
+preinstall=scripts/preinstall.sh
+postinstall=scripts/postinstall.sh
+preuninstall=scripts/preuninstall.sh
+
+[app.0]
+kind=sh
+path=bin/launch.sh
+uid=root

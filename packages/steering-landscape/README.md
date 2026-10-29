@@ -1,0 +1,24 @@
+# Steering Landscape NEMESIS package
+
+This package installs the Steering Landscape Android app using an existing NEMESIS installation. The hooks are restricted to the observed `wp_daudioplus_neev23se_us` device with fingerprint `ecohmc/wp_daudioplus_ecohmc_us/wp_daudioplus_ecohmc_us:4.4.2/KVT49L/eng.vmadmin.20260507.094910:user/dev-keys`. Other firmware needs separate verification. NEMESIS itself is not included.
+
+The hooks stage the APK atomically at `/system/app/SteeringLandscape.apk`, since `pm install` was rejected on the observed unit. They save the previous APK and mount state, refuse to overwrite an unrecognized existing APK, and attempt to refresh the Dalvik cache and verify package registration. Android may need a reboot if registration or cache refresh fails. NEMESIS can register the package even if a postinstall hook fails; inspect the result and logs. A package with these hooks was installed and launched through the NEMESIS CLI on the observed physical unit, with the same APK already present and `/system` writable. The user also reports that the USB archive installed successfully. Updates and the read-only mount path have not been tested on that unit.
+
+For USB installation, unpack `steering-landscape-1.0.0-usb.zip` at the drive root. It contains `NEMESIS.data` and `packages/steering-landscape-1.0.0.zip`. Insert the drive and confirm the install or update in NEMESIS Manager when Android is running. When Android is down, NEMESIS may install automatically. The package can be launched from Manager or with `nemesis pkg-launch steering-landscape`. When Android is running and `/data/local/gen5w-home/tiles.json` exists, the postinstall hook attempts to add a **Steering Landscape** activity tile with day/night artwork. An existing tile with the same ID is left untouched. After successful tile integration, the hook stops the home editor and restarts the home launcher so they reload the settings. This also happens when the tile already exists; stop any long-running launcher tile commands first because launcher job tracking is held in memory. The explicit launcher component has been tested in QEMU but not on the physical unit. The hook is skipped if Android is down or the configuration is absent, and tile integration failure does not undo the app installation. The helper has not yet been exercised on the head unit.
+
+With a verified ADB connection to a head unit that already has NEMESIS, the package can also be installed from the project root:
+
+```sh
+adb -s "$HU_SERIAL" push dist/steering-landscape-1.0.0.zip /data/local/tmp/steering-landscape-1.0.0.zip
+adb -s "$HU_SERIAL" shell /system/xbin/nemesis install /data/local/tmp/steering-landscape-1.0.0.zip
+adb -s "$HU_SERIAL" shell /system/xbin/nemesis pkg-list
+adb -s "$HU_SERIAL" shell /system/xbin/nemesis log dump
+```
+
+Use `install --update` for an existing NEMESIS package. This installs the package ZIP through NEMESIS, not through `adb install`.
+
+The tile helper does not remove tiles or artwork on uninstall; remove the tile in the launcher editor if desired. Package tile changes also invalidate the guarded host settings updater’s previous hash baseline, which must be reconciled before its next deployment.
+
+On uninstall the hook restores the saved APK or removes the package's APK if there was none, but refuses to overwrite an APK changed since installation. NEMESIS may continue removing package files despite a failed hook; check logs and `/data/nemesis/backups/steering-landscape/`. NEMESIS updates invoke the old package's uninstall hooks before installing the new package and are not transactional. If the original app is restored during an update, the new archive must approve that exact APK. The app's private preferences are not packaged; Android's treatment of app data after system APK removal or reboot is not guaranteed.
+
+Build with `./build.sh` and `python3 build_nemesis_package.py` from the project root. Both scripts use `ANDROID_HOME` or `ANDROID_SDK_ROOT`, falling back to `~/Android/Sdk`. The package builder requires the Gen5W home launcher checkout to build its tile helper: it looks for `hyundai_ioniq5_projects/gen5w-home-launcher` alongside the `hyundai_gen5w_qemu` checkout, or uses `GEN5W_HOME_LAUNCHER` when set. It copies canonical sources, tile artwork, the helper and the signed APK into the archive and writes `SHA256SUMS`; it does not copy arbitrary files. To allow replacement of an existing installation, supply the exact existing APK with `--approved-legacy PATH`. The builder verifies that its signing certificate matches the new APK. Without it, the hooks refuse to replace a different APK. Preserve `build/debug.keystore` separately for future updates; it is never packaged. The archive can optionally contain the approved old APK, so only include one you intend to distribute.
